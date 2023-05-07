@@ -21,14 +21,14 @@ def skip_prompt():
 
 
 def speed_up_replay():
-    def reply_TypingConsoleHandler_emit(emit):
+    def replay_TypingConsoleHandler_emit(emit):
         def new_TypingConsoleHandler_emit(self, record):
             monkeypatch.setattr("random.uniform", lambda a, b: 0)
             emit(self, record)
 
         return new_TypingConsoleHandler_emit
 
-    TypingConsoleHandler.emit = reply_TypingConsoleHandler_emit(
+    TypingConsoleHandler.emit = replay_TypingConsoleHandler_emit(
         TypingConsoleHandler.emit
     )
 
@@ -79,26 +79,26 @@ class MockOpenAI:
         return wrapper
 
     def mock_start_interaction_loop(self):
-        def reply_start_interaction_loop(start_interaction_loop):
+        def replay_start_interaction_loop(start_interaction_loop):
             def new_start_interaction_loop(_self):
-                _self.created_at = "REPLY_" + datetime.now().strftime("%Y%m%d_%H%M%S")
+                _self.created_at = "REPLAY_" + datetime.now().strftime("%Y%m%d_%H%M%S")
 
                 monkeypatch.setattr(
                     "openai.ChatCompletion.create", self.replay_ChatCompletion_create
                 )
 
-                monkeypatch.setattr("builtins.input", self.reply_input)
+                monkeypatch.setattr("builtins.input", self.replay_input)
 
                 start_interaction_loop(_self)
 
             return new_start_interaction_loop
 
-        Agent.start_interaction_loop = reply_start_interaction_loop(
+        Agent.start_interaction_loop = replay_start_interaction_loop(
             Agent.start_interaction_loop
         )
 
     @increment_frame
-    def reply_input(self, *args, **kwargs):
+    def replay_input(self, *args, **kwargs):
         current_frame = self._get_frame()
 
         replay = current_frame.try_replay_input()
