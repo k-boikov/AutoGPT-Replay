@@ -1,14 +1,15 @@
 import builtins
+import os
 import re
 from datetime import datetime
 
 import openai
 from _pytest.monkeypatch import MonkeyPatch
 from autogpt.agent.agent import Agent
+from autogpt.app import execute_command
 from autogpt.config.config import Config
 from autogpt.llm.token_counter import count_message_tokens, count_string_tokens
 from autogpt.logs import TypingConsoleHandler, logger
-from autogpt.app import execute_command
 from colorama import Fore
 
 from auto_gpt_replay.frame import Frame
@@ -40,6 +41,7 @@ def log(msg):
 
 class MockOpenAI:
     def __init__(self, session_dir, last_session):
+        self.workspace_root = "/"
         self.skip_inputs_next_n_frames = 0
         self.frames = {}
         self.current_frame = 1
@@ -54,9 +56,7 @@ class MockOpenAI:
     def format_response(frame_response, prompt_tokens, model):
         completion_tokens = count_string_tokens(frame_response, model)
         response = {
-            "choices": [
-                {"message": {"content": frame_response}}  # json.dumps(next_action)
-            ],
+            "choices": [{"message": {"content": frame_response}}],
             "usage": {
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
@@ -85,13 +85,17 @@ class MockOpenAI:
             def new_start_interaction_loop(_self):
                 _self.created_at = "REPLAY_" + datetime.now().strftime("%Y%m%d_%H%M%S")
 
+                self.workspace_root = _self.workspace.root
+
                 monkeypatch.setattr(
                     "openai.ChatCompletion.create", self.replay_ChatCompletion_create
                 )
 
                 monkeypatch.setattr("builtins.input", self.replay_input)
 
-                monkeypatch.setattr("autogpt.agent.agent.execute_command", self.replay_execute_command)
+                monkeypatch.setattr(
+                    "autogpt.agent.agent.execute_command", self.replay_execute_command
+                )
 
                 start_interaction_loop(_self)
 
@@ -115,6 +119,12 @@ class MockOpenAI:
         if command_name != expected_command["name"]:
             return self.original_execute_command(*args, **kwargs)
 
+        for pathlike in ["filename", "directory", "clone_path"]:
+            if pathlike in command_args:
+                command_args[pathlike] = os.path.relpath(
+                    command_args[pathlike], self.workspace_root
+                )
+
         if command_args != expected_command["args"]:
             return self.original_execute_command(*args, **kwargs)
 
@@ -124,7 +134,7 @@ class MockOpenAI:
         if replay is False:
             return self.original_execute_command(*args, **kwargs)
 
-        cmd_message_pattern = fr"^Command {command_name} returned: (.*)$"
+        cmd_message_pattern = rf"^Command {command_name} returned: (.*)$"
         command_result = re.match(cmd_message_pattern, replay)
 
         if command_result:
@@ -161,8 +171,8 @@ class MockOpenAI:
         return self.format_response(replay, prompt_tokens, model)
 
     def _get_frame(self):
-        # check if frame exists
 
+        # check if frame exists
         if self.current_frame not in self.frames:
             # if not, create it
             self.frames[self.current_frame] = Frame(
@@ -171,6 +181,7 @@ class MockOpenAI:
                 self.last_session,
                 log,
                 self._should_skip_input(),
+                self.workspace_root,
             )
 
         # Remove old frames if exists
@@ -191,5 +202,6 @@ class MockOpenAI:
                 self.last_session,
                 log,
                 self._should_skip_input(),
+                self.workspace_root,
             )
         return self.frames[next_index]

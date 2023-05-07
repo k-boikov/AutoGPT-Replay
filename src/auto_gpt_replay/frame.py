@@ -15,27 +15,28 @@ class Frame:
     @staticmethod
     def read_text_file(file):
         with open(
-                file,
-                "r",
-                encoding="utf-8",
+            file,
+            "r",
+            encoding="utf-8",
         ) as fp:
             return fp.read()
 
     @staticmethod
     def read_json_file(file):
         with open(
-                file,
-                "r",
-                encoding="utf-8",
+            file,
+            "r",
+            encoding="utf-8",
         ) as fp:
             return json.load(fp)
 
-    def __init__(self, index, session_dir, session, log, skip_input):
+    def __init__(self, index, session_dir, session, log, skip_input, workspace_root):
         self.user_input_replayed = False
         self.next_action_replayed = False
         self.summary_replayed = False
         self.command_replayed = False
         self.next_command = None
+        self.workspace_root = workspace_root
         self.index = index
         self.session_dir = session_dir
         self.session = session
@@ -106,6 +107,7 @@ class Frame:
             next_action = self._get_next_action()
             if next_action is None:
                 return False
+            next_action = self._filter_command_arguments(next_action)
             self._note_next_command(next_action)
             return json.dumps(next_action)
 
@@ -134,7 +136,9 @@ class Frame:
 
         # Loop message history in reverse
         for message in reversed(self.full_message_history):
-            if message["role"] == "system" and message["content"].startswith("Command "):
+            if message["role"] == "system" and message["content"].startswith(
+                "Command "
+            ):
                 return message["content"]
 
         return False
@@ -222,4 +226,13 @@ class Frame:
 
         return first_actual_sentence == first_expected_sentence
 
-
+    def _filter_command_arguments(self, next_action):
+        if "command" in next_action and "args" in next_action["command"]:
+            command_args = next_action["command"]["args"]
+            for pathlike in ["filename", "directory", "clone_path"]:
+                if pathlike in command_args:
+                    command_args[pathlike] = os.path.relpath(
+                        command_args[pathlike], self.workspace_root
+                    )
+            next_action["command"]["args"] = command_args
+        return next_action
