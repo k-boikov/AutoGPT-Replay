@@ -71,11 +71,11 @@ class MockIOFunctions:
             result = func(self, *args, **kwargs)
             current_frame = self._get_frame()
 
-            if self.skip_inputs_next_n_frames > 0:
-                self.skip_inputs_next_n_frames -= 1
-
             if current_frame.is_end_of_frame():
                 self.current_frame += 1
+                if self.skip_inputs_next_n_frames > 0:
+                    self.skip_inputs_next_n_frames -= 1
+
             return result
 
         return wrapper
@@ -151,7 +151,7 @@ class MockIOFunctions:
             user_input = self.original_input(*args, **kwargs)
             if match := re.match(self.cnt_mode_pattern, user_input.lower()):
                 cnt = match.groups()[0]
-                self.skip_inputs_next_n_frames = int(cnt) + 1
+                self.skip_inputs_next_n_frames = int(cnt)
             return user_input
 
         return replay
