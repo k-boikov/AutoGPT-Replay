@@ -15,18 +15,18 @@ class Frame:
     @staticmethod
     def read_text_file(file):
         with open(
-            file,
-            "r",
-            encoding="utf-8",
+                file,
+                "r",
+                encoding="utf-8",
         ) as fp:
             return fp.read()
 
     @staticmethod
     def read_json_file(file):
         with open(
-            file,
-            "r",
-            encoding="utf-8",
+                file,
+                "r",
+                encoding="utf-8",
         ) as fp:
             return json.load(fp)
 
@@ -34,6 +34,8 @@ class Frame:
         self.user_input_replayed = False
         self.next_action_replayed = False
         self.summary_replayed = False
+        self.command_replayed = False
+        self.next_command = None
         self.index = index
         self.session_dir = session_dir
         self.session = session
@@ -60,6 +62,9 @@ class Frame:
             self.current_user_input = None
         else:
             self.current_user_input = self._load_user_input()
+
+        self.full_message_history = self._load_full_message_history()
+
         self.can_replay = True
 
     def _check_frame_exists(self):
@@ -101,7 +106,12 @@ class Frame:
             next_action = self._get_next_action()
             if next_action is None:
                 return False
-            return next_action
+            self._note_next_command(next_action)
+            return json.dumps(next_action)
+
+        if self._check_if_should_be_summary(messages):
+            self.summary_replayed = True
+            return self.summary
 
         return False
 
@@ -115,8 +125,26 @@ class Frame:
 
         return False
 
+    def try_replay_command_for_prev_frame(self):
+        if not self.can_replay:
+            return False
+
+        if self.full_message_history is None:
+            return False
+
+        # Loop message history in reverse
+        for message in reversed(self.full_message_history):
+            if message["role"] == "system" and message["content"].startswith("Command "):
+                return message["content"]
+
+        return False
+
     def is_end_of_frame(self):
+        if not self.can_replay:
+            return False
         if self.current_user_input is not None and self.user_input_replayed is False:
+            return False
+        if self.next_command is not None and self.command_replayed is False:
             return False
         return self.next_action_replayed
 
@@ -141,10 +169,57 @@ class Frame:
         next_action = self._get_file_content("next_action")
         if next_action is None:
             return None
-        return json.dumps(next_action)
+        return next_action
 
     def _load_user_input(self):
         user_input = self._get_file_content("user_input")
         if user_input is None:
             return None
         return user_input.strip('"')
+
+    def _load_full_message_history(self):
+        full_message_history = self._get_file_content("full_message_history")
+        if full_message_history is None:
+            return None
+        return full_message_history
+
+    def _note_next_command(self, next_action):
+        command_name = None
+        if "command" in next_action:
+            if "name" in next_action["command"]:
+                command_name = next_action["command"]["name"]
+                if len(command_name) == 0:
+                    return
+            if "args" in next_action["command"]:
+                command_args = next_action["command"]["args"]
+            else:
+                return
+        else:
+            return
+
+        self.next_command = {
+            "name": command_name,
+            "args": command_args,
+        }
+
+    def get_next_command(self):
+        if not self.can_replay:
+            return False
+        # We actually replay from the next frame, but we still want to mark this one as finished
+        self.command_replayed = True
+        return self.next_command
+
+    def _check_if_should_be_summary(self, messages):
+        if len(messages) > 1 or len(messages) == 0:
+            return False
+        message = messages[0]
+        if message["role"] != "user":
+            return False
+
+        expected_content = self.summary_prompt[0]["content"]
+        first_actual_sentence = message["content"].split(".")[0]
+        first_expected_sentence = expected_content.split(".")[0]
+
+        return first_actual_sentence == first_expected_sentence
+
+
