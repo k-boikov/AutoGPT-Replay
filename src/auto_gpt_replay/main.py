@@ -52,10 +52,10 @@ class Replay:
 
         logger.typewriter_log("Replaying session:", Fore.GREEN, last_session)
 
-        from auto_gpt_replay.mock import MockOpenAI, skip_prompt, speed_up_replay
+        from auto_gpt_replay.mock import MockIOFunctions, skip_prompt, speed_up_replay
 
         skip_prompt()
         speed_up_replay()
 
-        openai_mock = MockOpenAI(self.session_dir, last_session)
+        openai_mock = MockIOFunctions(self.session_dir, last_session)
         openai_mock.mock_start_interaction_loop()

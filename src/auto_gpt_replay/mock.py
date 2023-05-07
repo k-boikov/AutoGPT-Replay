@@ -39,7 +39,7 @@ def log(msg):
     logger.typewriter_log("WARNING:", Fore.RED, msg)
 
 
-class MockOpenAI:
+class MockIOFunctions:
     def __init__(self, session_dir, last_session):
         self.workspace_root = "/"
         self.skip_inputs_next_n_frames = 0
