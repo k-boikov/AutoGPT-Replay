@@ -8,7 +8,7 @@ import zipfile
 current_dir = os.getcwd()
 
 # Get the destination directory for the zip files
-dest_dir = os.path.abspath(os.path.join(current_dir, "../../Auto-GPT/plugins"))
+dest_dir = os.path.abspath(os.path.join(current_dir, "..", "..", "Auto-GPT", "plugins"))
 
 # Loop through all the items in the current directory
 for item in os.listdir(current_dir):
