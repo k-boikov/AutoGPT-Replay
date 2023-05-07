@@ -10,6 +10,8 @@ from autogpt.llm.token_counter import count_message_tokens, count_string_tokens
 from autogpt.logs import TypingConsoleHandler, logger
 from colorama import Fore
 
+from auto_gpt_replay.frame import Frame
+
 monkeypatch = MonkeyPatch()
 
 
@@ -31,30 +33,17 @@ def speed_up_replay():
     )
 
 
+def log(msg):
+    logger.typewriter_log("WARNING:", Fore.RED, msg)
+
+
 class MockOpenAI:
     def __init__(self, session_dir, last_session):
+        self.frames = {}
         self.current_frame = 1
         self.session_dir = session_dir
         self.last_session = last_session
         self.original_create = openai.ChatCompletion.create
-
-    @staticmethod
-    def read_text_file(file):
-        with open(
-            file,
-            "r",
-            encoding="utf-8",
-        ) as fp:
-            return fp.read()
-
-    @staticmethod
-    def read_json_file(file):
-        with open(
-            file,
-            "r",
-            encoding="utf-8",
-        ) as fp:
-            return json.load(fp)
 
     @staticmethod
     def format_response(frame_response, prompt_tokens, model):
@@ -76,7 +65,9 @@ class MockOpenAI:
             def new_start_interaction_loop(_self):
                 _self.created_at = "REPLY_" + datetime.now().strftime("%Y%m%d_%H%M%S")
 
-                monkeypatch.setattr("openai.ChatCompletion.create", self.replay_create)
+                monkeypatch.setattr(
+                    "openai.ChatCompletion.create", self.replay_ChatCompletion_create
+                )
 
                 start_interaction_loop(_self)
 
@@ -86,69 +77,36 @@ class MockOpenAI:
             Agent.start_interaction_loop
         )
 
-    def replay_create(self, *args, **kwargs):
-        frame_folder = os.path.join(
-            self.session_dir, self.last_session, str(self.current_frame).zfill(3)
-        )
-        if not os.path.exists(frame_folder):
-            logger.typewriter_log(
-                "WARNING:",
-                Fore.RED,
-                f"Replay frame {self.current_frame} not found! Running live now!",
-            )
-            return self.original_create(*args, **kwargs)
-
+    def replay_ChatCompletion_create(self, *args, **kwargs):
         messages = kwargs.get("messages")
         model = kwargs.get("model")
+
+        current_frame = self._get_frame()
+
+        replay = current_frame.try_replay(messages, model)
+        if replay is False:
+            return self.original_create(*args, **kwargs)
+
+        if current_frame.is_end_of_frame:
+            self.current_frame += 1
+
         prompt_tokens = count_message_tokens(messages, model)
+        return self.format_response(replay, prompt_tokens, model)
 
-        if (
-            len(messages) > 0
-            and 'Respond with: "Acknowledged"' in messages[0]["content"]
-        ):
-            # No support for Agent responses yet
-            return self.original_create(*args, **kwargs)
+    def _get_frame(self):
+        # check if frame exists
 
-        next_action_file = None
-        summary_file = None
-        prompt_summary_file = None
-
-        # walk the frame folder and find the files
-        for root, dirs, files in os.walk(frame_folder):
-            for file in files:
-                if file.endswith("_next_action.json"):
-                    next_action_file = file
-                elif file.endswith("_summary.txt"):
-                    summary_file = file
-                elif file.endswith("_prompt_summary.json"):
-                    prompt_summary_file = file
-
-        if prompt_summary_file is not None:
-            prompt_summary = self.read_json_file(
-                os.path.join(frame_folder, prompt_summary_file)
+        if self.current_frame not in self.frames:
+            # if not, create it
+            self.frames[self.current_frame] = Frame(
+                self.current_frame,
+                self.session_dir,
+                self.last_session,
+                log,
             )
 
-            if prompt_summary == messages:
-                if summary_file is not None:
-                    # Read text from summary file
-                    frame_response = self.read_text_file(
-                        os.path.join(frame_folder, summary_file)
-                    )
-                    return self.format_response(frame_response, prompt_tokens, model)
-                else:
-                    # No response for summary found
-                    return self.original_create(*args, **kwargs)
+        # Remove old frames if exists
+        if self.current_frame - 1 in self.frames:
+            del self.frames[self.current_frame - 1]
 
-        # Next action should be the last thing for the frame
-        self.current_frame += 1
-        if next_action_file is not None:
-            # Read json from next action file
-            frame_response = self.read_json_file(
-                os.path.join(frame_folder, next_action_file)
-            )
-            return self.format_response(
-                json.dumps(frame_response), prompt_tokens, model
-            )
-        else:
-            # No json for next action found
-            return self.original_create(*args, **kwargs)
+        return self.frames[self.current_frame]
