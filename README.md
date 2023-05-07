@@ -2,6 +2,10 @@
 
 # The ultimate AutoGPT debugging tool
 
+
+https://user-images.githubusercontent.com/64261260/236684469-bc6a0a66-8b10-4e33-85f0-ab75ef093e46.mp4
+
+
 ### Plugin Installation Steps
 
 1. **Clone or download the plugin repository:**
