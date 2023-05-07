@@ -30,6 +30,7 @@ class AutoGPTReplay(AutoGPTPluginTemplate):
         should_run_replay = os.getenv("RUN_REPLAY", "False") == "True"
         if should_run_replay:
             from auto_gpt_replay.main import Replay
+
             replay = Replay()
             replay.run_replay()
 

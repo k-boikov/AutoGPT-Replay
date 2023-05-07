@@ -6,6 +6,7 @@ import openai
 from _pytest.monkeypatch import MonkeyPatch
 from autogpt.agent.agent import Agent
 from autogpt.config.config import Config
+from autogpt.llm.token_counter import count_message_tokens, count_string_tokens
 from autogpt.logs import TypingConsoleHandler, logger
 from colorama import Fore
 
@@ -56,14 +57,15 @@ class MockOpenAI:
             return json.load(fp)
 
     @staticmethod
-    def format_response(frame_response):
+    def format_response(frame_response, prompt_tokens, model):
+        completion_tokens = count_string_tokens(frame_response, model)
         response = {
             "choices": [
                 {"message": {"content": frame_response}}  # json.dumps(next_action)
             ],
             "usage": {
-                "prompt_tokens": 1,
-                "completion_tokens": 1,
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
             },
         }
         # transform response dict to object using convert_to_openai_object
@@ -96,9 +98,14 @@ class MockOpenAI:
             )
             return self.original_create(*args, **kwargs)
 
-        message = kwargs.get("messages")
+        messages = kwargs.get("messages")
+        model = kwargs.get("model")
+        prompt_tokens = count_message_tokens(messages, model)
 
-        if len(message) > 0 and 'Respond with: "Acknowledged"' in message[0]["content"]:
+        if (
+            len(messages) > 0
+            and 'Respond with: "Acknowledged"' in messages[0]["content"]
+        ):
             # No support for Agent responses yet
             return self.original_create(*args, **kwargs)
 
@@ -121,13 +128,13 @@ class MockOpenAI:
                 os.path.join(frame_folder, prompt_summary_file)
             )
 
-            if prompt_summary == message:
+            if prompt_summary == messages:
                 if summary_file is not None:
                     # Read text from summary file
                     frame_response = self.read_text_file(
                         os.path.join(frame_folder, summary_file)
                     )
-                    return self.format_response(frame_response)
+                    return self.format_response(frame_response, prompt_tokens, model)
                 else:
                     # No response for summary found
                     return self.original_create(*args, **kwargs)
@@ -139,7 +146,9 @@ class MockOpenAI:
             frame_response = self.read_json_file(
                 os.path.join(frame_folder, next_action_file)
             )
-            return self.format_response(json.dumps(frame_response))
+            return self.format_response(
+                json.dumps(frame_response), prompt_tokens, model
+            )
         else:
             # No json for next action found
             return self.original_create(*args, **kwargs)
