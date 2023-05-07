@@ -75,6 +75,8 @@ def run_replay():
 
             import openai
 
+            original_create = openai.ChatCompletion.create
+
             current_frame = 1
 
             def replay_create(*args, **kwargs):
@@ -105,7 +107,7 @@ def run_replay():
                         Fore.RED,
                         f"Replay frame {current_frame} not found! Running live now!",
                     )
-                    return openai.ChatCompletion.create(*args, **kwargs)
+                    return original_create(*args, **kwargs)
 
                 message = kwargs.get("messages")
 
@@ -141,7 +143,7 @@ def run_replay():
                                     return format_response(frame_response)
                             else:
                                 # No response for summary found
-                                return openai.ChatCompletion.create(*args, **kwargs)
+                                return original_create(*args, **kwargs)
 
                 # Next action should be the last thing for the frame
                 current_frame += 1
