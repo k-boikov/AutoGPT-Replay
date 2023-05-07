@@ -50,6 +50,18 @@ class Replay:
             logger.typewriter_log("WARNING:", Fore.RED, "No previous sessions found!")
             return
 
+        while True:
+            logger.typewriter_log(f"REPLAY found - {last_session}, run?", Fore.GREEN, "(y / or enter folder name)")
+            user_input = input("Input: ")
+            if user_input.lower().strip() == "":
+                continue
+            if user_input.lower().strip() == "y":
+                break
+            if os.path.exists(os.path.join(self.session_dir, user_input.strip())):
+                last_session = user_input
+                break
+            logger.typewriter_log("REPLAY NOT found, try again...", Fore.RED, "")
+
         logger.typewriter_log("Replaying session:", Fore.GREEN, last_session)
 
         from auto_gpt_replay.mock import MockIOFunctions, skip_prompt, speed_up_replay
