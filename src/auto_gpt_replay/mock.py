@@ -1,4 +1,5 @@
 import builtins
+import copy
 import os
 import re
 from datetime import datetime
@@ -114,7 +115,7 @@ class MockIOFunctions:
             command_name = args[1]
         command_args = kwargs.get("arguments")
         if command_args is None:
-            command_args = args[2]
+            command_args = copy.deepcopy(args[2])
 
         if command_name != expected_command["name"]:
             return self.original_execute_command(*args, **kwargs)
