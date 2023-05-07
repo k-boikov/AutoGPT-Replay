@@ -111,6 +111,13 @@ def run_replay():
 
                 message = kwargs.get("messages")
 
+                if (
+                    len(message) > 0
+                    and 'Respond with: "Acknowledged"' in message[0]["content"]
+                ):
+                    # No support for Agent responses yet
+                    return original_create(*args, **kwargs)
+
                 next_action_file = None
                 summary_file = None
                 prompt_summary_file = None
