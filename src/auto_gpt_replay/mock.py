@@ -171,7 +171,6 @@ class MockIOFunctions:
         return self.format_response(replay, prompt_tokens, model)
 
     def _get_frame(self):
-
         # check if frame exists
         if self.current_frame not in self.frames:
             # if not, create it

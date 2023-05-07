@@ -51,7 +51,11 @@ class Replay:
             return
 
         while True:
-            logger.typewriter_log(f"REPLAY found - {last_session}, run?", Fore.GREEN, "(y / or enter folder name)")
+            logger.typewriter_log(
+                f"REPLAY found - {last_session}, run?",
+                Fore.GREEN,
+                "(y / or enter folder name)",
+            )
             user_input = input("Input: ")
             if user_input.lower().strip() == "":
                 continue
