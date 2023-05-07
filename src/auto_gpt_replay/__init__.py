@@ -6,8 +6,6 @@ from typing import Any, Dict, List, Optional, Tuple, TypedDict, TypeVar
 from auto_gpt_plugin_template import AutoGPTPluginTemplate
 from dotenv import load_dotenv
 
-from auto_gpt_replay.main import run_replay
-
 PromptGenerator = TypeVar("PromptGenerator")
 
 with open(str(Path(os.getcwd()) / ".env"), "r", encoding="utf-8") as fp:
@@ -31,7 +29,9 @@ class AutoGPTReplay(AutoGPTPluginTemplate):
         self._description = "Replay last AutoGPT session."
         should_run_replay = os.getenv("RUN_REPLAY", "False") == "True"
         if should_run_replay:
-            run_replay()
+            from auto_gpt_replay.main import Replay
+            replay = Replay()
+            replay.run_replay()
 
     def can_handle_on_response(self) -> bool:
         """This method is called to check that the plugin can
