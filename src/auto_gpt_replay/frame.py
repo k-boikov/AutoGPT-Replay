@@ -227,7 +227,11 @@ class Frame:
         return first_actual_sentence == first_expected_sentence
 
     def _filter_command_arguments(self, next_action):
-        if "command" in next_action and "args" in next_action["command"]:
+        if (
+            "command" in next_action
+            and type(next_action["command"]) is dict
+            and "args" in next_action["command"]
+        ):
             command_args = next_action["command"]["args"]
             for pathlike in ["filename", "directory", "clone_path"]:
                 if pathlike in command_args:
