@@ -110,6 +110,9 @@ class MockIOFunctions:
     def replay_execute_command(self, *args, **kwargs):
         current_frame = self._get_frame()
         expected_command = current_frame.get_next_command()
+        if expected_command is None:
+            return self.original_execute_command(*args, **kwargs)
+
         command_name = kwargs.get("command_name")
         if command_name is None:
             command_name = args[1]
