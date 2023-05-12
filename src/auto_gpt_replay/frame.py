@@ -12,6 +12,11 @@ class Frame:
         "user_input": "_user_input.txt",
     }
 
+    summary_prompt_backup = (
+        "Your task is to create a concise running summary of actions and information results in "
+        "the provided text, focusing on key and potentially important information to remember."
+    )
+
     @staticmethod
     def read_text_file(file):
         with open(
@@ -98,7 +103,11 @@ class Frame:
             # What is this?
             return False
 
-        if self.summary_replayed is False and messages == self.summary_prompt:
+        if (
+            self.summary_replayed is False
+            and self.summary is not None
+            and messages == self.summary_prompt
+        ):
             self.summary_replayed = True
             return self.summary
 
@@ -113,7 +122,8 @@ class Frame:
 
         if self._check_if_should_be_summary(messages):
             self.summary_replayed = True
-            return self.summary
+            if self.summary is not None:
+                return self.summary
 
         return False
 
@@ -220,7 +230,11 @@ class Frame:
         if message["role"] != "user":
             return False
 
-        expected_content = self.summary_prompt[0]["content"]
+        if self.summary_prompt is not None:
+            expected_content = self.summary_prompt[0]["content"]
+        else:
+            expected_content = self.summary_prompt_backup
+
         first_actual_sentence = message["content"].split(".")[0]
         first_expected_sentence = expected_content.split(".")[0]
 
