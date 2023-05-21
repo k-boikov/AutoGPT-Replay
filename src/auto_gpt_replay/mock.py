@@ -9,7 +9,10 @@ from _pytest.monkeypatch import MonkeyPatch
 from autogpt.agent.agent import Agent
 from autogpt.app import execute_command
 from autogpt.config.config import Config
-from autogpt.llm.token_counter import count_message_tokens, count_string_tokens
+try:
+    from autogpt.llm.token_counter import count_message_tokens, count_string_tokens
+except ImportError:
+    from autogpt.llm.utils.token_counter import count_message_tokens, count_string_tokens
 from autogpt.logs import TypingConsoleHandler, logger
 from colorama import Fore
 
