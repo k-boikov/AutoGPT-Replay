@@ -198,6 +198,8 @@ class Frame:
         return full_message_history
 
     def _note_next_command(self, next_action):
+        if self.current_user_input is not None:
+            return
         command_name = None
         if "command" in next_action:
             if "name" in next_action["command"]:
