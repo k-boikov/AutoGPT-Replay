@@ -142,7 +142,7 @@ class MockIOFunctions:
             return self.original_execute_command(*args, **kwargs)
 
         cmd_message_pattern = rf"^Command {command_name} returned: (.*)$"
-        command_result = re.match(cmd_message_pattern, replay)
+        command_result = re.match(cmd_message_pattern, replay, re.MULTILINE | re.DOTALL)
 
         if command_result:
             return command_result.groups()[0]
